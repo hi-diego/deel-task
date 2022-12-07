@@ -1,3 +1,7 @@
+# Diego Meza Challenge Answer
+- I added aDockerFile to contain the app cuz' I was getting Gyp errors
+- I also updated Sqlite3 version
+
 # DEEL BACKEND TASK
 
   
