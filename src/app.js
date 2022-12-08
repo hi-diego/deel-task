@@ -84,13 +84,15 @@ app.get('/jobs/paid', getProfile ,async (req, res) =>{
 })
 
 app.get('/jobs/:job_id/pay', getProfile, async (req, res) =>{
-    const {Job} = req.app.get('models')
+    const {Job, Sequelize} = req.app.get('models')
     let profileId = Number(req.get('profile_id') || '0');
     let { job_id } = req.params
     const job = await Job.findByPk(job_id)
     if (!job) return res.status(404).end()
     if (req.profile.balance < job.price) return res.status(404).send({ message: 'Insuficcient funnds' }).end()
     // TODO: verify that you are the Client to avoid paying others Jobs
+    job.paid = true
+    job.paymentDate = Sequelize.NOW
     req.profile.balance -= job.price
     job.Contract.Contractor.balance += job.price
     await await Promise.all([req.profile.save(), job.save()]);
@@ -110,8 +112,53 @@ app.get('/balances/deposit/:userId', getProfile, async (req, res) =>{
     res.json(req.profile)
 })
 
-app.get('/me', getProfile, async (req, res) =>{
-    res.json(req.profile)
+app.get('/me', getProfile, async (req, res) => {
+  const {Profile, Contract} = req.app.get('models')
+  const p = await Profile.findOne({
+    where: { id: req.profile.id },
+    include: { Contract }
+  })
+  res.json(p)
 })
+
+app.get('/admin/best-profession', getProfile, async (req, res) => {
+  const {Job, Contract} = req.app.get('models')
+  // query ex: ?start=<date>&end=<date>
+  const start = Date.parse(req.query.start)
+  const end = Date.parse(req.query.end)
+  const jobs = await Job.findAll({
+    where: {
+      paymentDate: {
+        [Op.gte]: start,
+        [Op.lt]: end
+      },
+      paid: {
+        [Op.eq]: true
+      }
+    },
+    // group: 'ContractId',
+    // group: 'description' 
+    include: { model: Contract, include: { association: 'Contractor' } }
+  });
+  res.json(groupBy(jobs, 'ContractId'))
+})
+
+function groupBy(arr, key) {
+  // create an object to store the groups
+  const groups = {};
+  // iterate over the array of items
+  for (const item of arr) {
+    // get the value of the key for the current item
+    const value = item[key];
+    // if a group for the value doesn't exist, create one
+    if (!groups[value]) {
+      groups[value] = [];
+    }
+    // add the item to the appropriate group
+    groups[value].push(item);
+  }
+  // return the object of groups
+  return groups;
+}
 
 module.exports = app;
