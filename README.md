@@ -2,6 +2,8 @@
 - I added aDockerFile to contain the app cuz' I was getting Gyp errors
 - I also updated Sqlite3 version
 
+- I did not have enough time to add transactions nor testing, there is a lot of areas of improvements on this pice of code
+
 # DEEL BACKEND TASK
 
   

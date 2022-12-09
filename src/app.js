@@ -150,19 +150,50 @@ app.get('/admin/best-profession', getProfile, async (req, res) => {
   res.json(bestProfession)
 })
 
+app.get('/admin/best-clients', getProfile, async (req, res) => {
+  // query parametesr ex: ?start=<date>&end=<date>&limit=<integer>
+  const {Job, Contract} = req.app.get('models')
+  const start = Date.parse(req.query.start)
+  const end = Date.parse(req.query.end)
+  const limit = Number(req.query.limit || '1')
+  // Query the Jobs cus there are the only models that have DateTime
+  const jobs = await Job.findAll({
+    where: {
+      paymentDate: {
+        [Op.gte]: start,
+        [Op.lt]: end
+      },
+      paid: {
+        [Op.eq]: true
+      }
+    },
+    include: { model: Contract, include: { association: 'Client' } }
+  });
+  // Group by ContractId and sum the totaly pay for each of them
+  const grouped = groupBy(jobs, 'ContractId')
+  const bestClients = grouped.map(js => {
+    const totalPay = js.reduce((sum, job) => sum + job.price, 0)
+    const resume = { client: js[0].Contract.Client, totalPay: totalPay }
+    return resume
+  })
+  res.json(bestClients.sort((a, b) => b.totalPay - a.totalPay).slice(0, limit))
+})
+
 function groupBy(arr, key) {
   // create an object to store the groups
   const groups = [];
   // iterate over the array of items
+  var index = 0
   for (const item of arr) {
     // get the value of the key for the current item
     const value = item[key];
     // if a group for the value doesn't exist, create one
-    if (!groups[value]) {
-      groups[value] = [];
+    if (!groups[index]) {
+      groups[index] = [];
     }
     // add the item to the appropriate group
-    groups[value].push(item);
+    groups[index].push(item);
+    index++;
   }
   // return the object of groups
   return groups;
