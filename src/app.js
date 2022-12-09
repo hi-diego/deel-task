@@ -123,9 +123,9 @@ app.get('/me', getProfile, async (req, res) => {
 
 app.get('/admin/best-profession', getProfile, async (req, res) => {
   const {Job, Contract} = req.app.get('models')
-  // query ex: ?start=<date>&end=<date>
   const start = Date.parse(req.query.start)
   const end = Date.parse(req.query.end)
+  // Query the Jobs cus there are the only models that have DateTime
   const jobs = await Job.findAll({
     where: {
       paymentDate: {
@@ -136,16 +136,23 @@ app.get('/admin/best-profession', getProfile, async (req, res) => {
         [Op.eq]: true
       }
     },
-    // group: 'ContractId',
-    // group: 'description' 
     include: { model: Contract, include: { association: 'Contractor' } }
   });
-  res.json(groupBy(jobs, 'ContractId'))
+  // Group by ContractId and sum the totaly pay for each of them
+  const grouped = groupBy(jobs, 'ContractId')
+  const bestProfession = grouped.reduce((prev, curr, index) => {
+    const totalPay = curr.reduce((sum, job) => sum + job.price, 0)
+    const resume = { jobs:curr, totalPay: totalPay }
+    if (!prev) return resume
+    if (prev.totalPay > resume.totalPay) return prev
+    return resume
+  })
+  res.json(bestProfession)
 })
 
 function groupBy(arr, key) {
   // create an object to store the groups
-  const groups = {};
+  const groups = [];
   // iterate over the array of items
   for (const item of arr) {
     // get the value of the key for the current item
